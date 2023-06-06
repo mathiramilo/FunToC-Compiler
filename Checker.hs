@@ -39,6 +39,70 @@ instance Show Error where
  show (Expected    ty ty')
    = "Expected: " ++ show ty ++ " Actual: " ++ show ty'
 
+-------------------------------------------------
+-- data Type = TyInt | TyBool
+--  deriving Eq
+
+-- data Program = Program Defs Expr
+
+-- type Name  = String
+
+-- type Defs = [FunDef]
+
+-- type TypedVar = (Name, Type)
+-- type TypedFun = (Name, Sig)
+
+-- data FunDef  = FunDef TypedFun [Name]  Expr
+
+-- data Sig = Sig [Type] Type
+
+-- data Expr = Var     Name
+--           | IntLit  Integer
+--           | BoolLit Bool
+--           | Infix   Op Expr Expr
+--           | If      Expr Expr Expr
+--           | Let     TypedVar Expr Expr
+--           | App     Name [Expr]
+
+-- data Op = Add | Sub | Mult | Div
+--         | Eq | NEq | GTh | LTh | GEq | LEq
+--         deriving Eq
+
+-- type Env = [TypedVar]
+
+checkVariableNames :: Program -> [Error]
+checkFunctionNames :: Program -> [Error]
+
+funcion(Var a) = table
+funcion(_ a) = tal
+
+-- sum1 = sumacc 0
+--   where sumacc s []      = s 
+--         sumacc s (x:xs)  = sumacc (s + x) xs
+
+-- fact n = factacc 1 n
+-- where
+-- factacc a 0 = a
+-- factacc a n = factacc (a ∗ n) (n − 1)
+
+
+checkVariableNames Program (Defs defs) (Expr [FunDef]) = -- foldl (\) []
+  | (condicion) = resultado
+  | (condicion) = resultado
+checkVariableNames Var name defs listaErrores =
+  | name in defs = 
+
+checkVariableNames Var 
+
+  para cada fundef
+    if variable (hoja):
+      if hoja not in fundef
+        append variable errores 
+    else
+      checkVariableNames defs expresiones
+
+# data Program = Program Defs Expr 
 
 checkProgram :: Program -> Checked
-checkProgram = undefined
+checkProgram = do
+
