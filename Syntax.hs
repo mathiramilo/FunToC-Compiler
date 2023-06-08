@@ -29,7 +29,7 @@ import Data.List
 data Type = TyInt | TyBool
  deriving Eq
 
-data Program = Program Defs Expr 
+data Program = Program Defs Expr
 
 type Name  = String
 
@@ -41,7 +41,7 @@ type TypedFun = (Name, Sig)
 data FunDef  = FunDef TypedFun [Name]  Expr
 
 data Sig = Sig [Type] Type
-           
+
 data Expr = Var     Name
           | IntLit  Integer
           | BoolLit Bool
