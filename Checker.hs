@@ -39,6 +39,9 @@ instance Show Error where
  show (Expected    ty ty')
    = "Expected: " ++ show ty ++ " Actual: " ++ show ty'
 
+-- ######################################
+-- #############CHECKER 2.1##############
+-- ######################################
 
 -- Chequeo de multiples declaraciones de una misma funcion. Dado un programa, esta funcion devuelve una lista de errores tal que cada vez que se repite la declaracion de una funcion se agrega un error 'Duplicated' a la lista.
 checkFunctionDeclarations :: Program -> [Error]
@@ -72,38 +75,61 @@ findRepeatedParams xs = concatMap findRepeated xs
 
 -- Primer chequeo, repeticion de nombres. Si no hay errores, se devuelve 'Ok'. Si hay errores, se devuelven los errores.
 checkRepeatedNames :: Program -> Checked
+-- TODO: Se está llamando a la función checkFunctionDeclarations dos veces
 checkRepeatedNames (Program defs _) = if (checkFunctionDeclarations (Program defs _) == []) && (checkParamsNames (Program defs _) == []) then Ok else Wrong (checkFunctionDeclarations (Program defs _) ++ checkParamsNames (Program defs _))
 
-
--- funcion(Var a) = table
--- funcion(_ a) = tal
-
--- sum1 = sumacc 0
---   where sumacc s []      = s 
---         sumacc s (x:xs)  = sumacc (s + x) xs
-
--- fact n = factacc 1 n
--- where
--- factacc a 0 = a
--- factacc a n = factacc (a ∗ n) (n − 1)
+-- ######################################
+-- #############CHECKER 2.2##############
+-- ######################################
 
 
-checkVariableNames Program (Defs defs) (Expr [FunDef]) = -- foldl (\) []
-  | (condicion) = resultado
-  | (condicion) = resultado
-checkVariableNames Var name defs listaErrores =
-  | name in defs = 
+-- Hallar mapa de valores {(name: param_num)}
+-- Hallar mapa de llamadas {(name: param_num)}
+-- Checkear que se correspondan
 
-checkVariableNames Var 
+-- data FunDef  = FunDef TypedFun [Name]  Expr
+-- data Expr = Var     Name
+--           | IntLit  Integer
+--           | BoolLit Bool
+--           | Infix   Op Expr Expr
+--           | If      Expr Expr Expr
+--           | Let     TypedVar Expr Expr
+--           | App     Name [Expr]
 
-  para cada fundef
-    if variable (hoja):
-      if hoja not in fundef
-        append variable errores 
-    else
-      checkVariableNames defs expresiones
+-- Gets main branch of application
+getApp :: [Expr] -> Just App | Nothing
+getApp (((App app):_)) = app
+getApp (((_):xs)) = getApp xs
+getApp [] = Nothing
 
-# data Program = Program Defs Expr 
+-- Counts number of parameters from each function **declaration**
+getFunctionParamCounts :: Defs -> [(String, Number)]
+getFunctionParamCounts [] results = results
+getFunctionParamCounts (((name _) params _):xs) result = 
+  getFunctionParamCounts xs (result:(name, length params))
+
+-- Counts number of parameters from each function **expression**
+getExpressionParamCounts :: Expr -> [(String, Number)]
+getExpressionParamCounts (App _ expressions) = 
+  concatMap getExpressionParamCounts expressions
+getExpressionParamCounts (Infix)
+getExpressionParamCounts (If)
+getExpressionParamCounts (Let)  -- y las funciones????
+
+-- For a given a key-pair tuple, 
+-- asserts that for each key-value pair in a list of tuples, 
+-- there is no key so that key1 == key2 and value1 != value2.
+checkDictInconsistency :: (String, Number) -> [(String, Number)] -> Bool
+checkDictInconsistency (key, value) [] = True
+checkDictInconsistency (key, value) ((other_key, other_value):xs)
+  | key==other_key && value == other_value = False
+  | otherwise = checkDictInconsistency (key, value) (xs)
+
+checkDictInconsistencies :: [(String, Number)] -> [(String, Number)] -> Bool
+checkDictInconsistencies tuples1 tuples2 = all (==True) $ map (\tuple -> checkDictInconsistency tuple tuples2) tuples1
+
+checkParamNumbers :: Program -> Checked
+checkParamNumbers (Program defs expressions) = checkDictInconsistencies (getFunctionParamCounts defs) (getExpressionParamCounts $ getApp defs)
 
 checkProgram :: Program -> Checked
 checkProgram = do
