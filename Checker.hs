@@ -82,39 +82,23 @@ checkRepeatedNames (Program defs _) = if (checkFunctionDeclarations (Program def
 -- #############CHECKER 2.2##############
 -- ######################################
 
-
--- Hallar mapa de valores {(name: param_num)}
--- Hallar mapa de llamadas {(name: param_num)}
--- Checkear que se correspondan
-
--- data FunDef  = FunDef TypedFun [Name]  Expr
--- data Expr = Var     Name
---           | IntLit  Integer
---           | BoolLit Bool
---           | Infix   Op Expr Expr
---           | If      Expr Expr Expr
---           | Let     TypedVar Expr Expr
---           | App     Name [Expr]
-
--- Gets main branch of application
-getApp :: [Expr] -> Just App | Nothing
-getApp (((App app):_)) = app
-getApp (((_):xs)) = getApp xs
-getApp [] = Nothing
-
 -- Counts number of parameters from each function **declaration**
-getFunctionParamCounts :: Defs -> [(String, Number)]
+getFunctionParamCounts :: Defs -> [(String, Number)] -> [(String, Number)]
 getFunctionParamCounts [] results = results
-getFunctionParamCounts (((name _) params _):xs) result = 
+getFunctionParamCounts (((name, _) params _):xs) result = 
   getFunctionParamCounts xs (result:(name, length params))
 
 -- Counts number of parameters from each function **expression**
 getExpressionParamCounts :: Expr -> [(String, Number)]
-getExpressionParamCounts (App _ expressions) = 
-  concatMap getExpressionParamCounts expressions
-getExpressionParamCounts (Infix)
-getExpressionParamCounts (If)
-getExpressionParamCounts (Let)  -- y las funciones????
+getExpressionParamCounts (App name expressions) = 
+  (name, length expressions) : (concatMap getExpressionParamCounts expressions)
+getExpressionParamCounts (Infix operator expr_left expr_right) = 
+  (getExpressionParamCounts expr_left) ++ (getExpressionParamCounts expressions)
+getExpressionParamCounts (If condition_expr then_expr else_expr) = 
+  (getExpressionParamCounts condition_expr) ++ (getExpressionParamCounts else_expr)
+getExpressionParamCounts (Let expr1 expr2) =
+  (getExpressionParamCounts expr1) ++ (getExpressionParamCounts expr2)
+getExpressionParamCounts (_) = []
 
 -- For a given a key-pair tuple, 
 -- asserts that for each key-value pair in a list of tuples, 
@@ -129,8 +113,67 @@ checkDictInconsistencies :: [(String, Number)] -> [(String, Number)] -> Bool
 checkDictInconsistencies tuples1 tuples2 = all (==True) $ map (\tuple -> checkDictInconsistency tuple tuples2) tuples1
 
 checkParamNumbers :: Program -> Checked
-checkParamNumbers (Program defs expressions) = checkDictInconsistencies (getFunctionParamCounts defs) (getExpressionParamCounts $ getApp defs)
+-- TODO: Arreglar getApp
+checkParamNumbers (Program defs expressions) = 
+  checkDictInconsistencies (getFunctionParamCounts [] defs) (concatMap getExpressionParamCounts expressions)
+
+-- ########################################
+-- ############# CHECKER 2.4 ##############
+-- ########################################
+
+-- HELPERS-----------
+getFunctionDefinitionByName :: String -> [Def] -> Maybe FunDef
+getFunctionDefinitionByName name defs = find (\((f_name, _) _ _) -> f_name == name) defs
+
+getFunctionParamsType :: FunDef -> [Type]
+getFunctionParamsType (FunDef (TypedFun (_, (param_types, _)) _ _)) = param_types
+
+getFunctionType :: FunDef -> Type
+getFunctionTypes (FunDef (TypedFun (_, (_, function_type)) _ _)) = function_type
+------------------
+
+getType :: (Expr | Type) -> Env -> Defs -> (String | Error)
+getType (Var name) env _ = getType $ snd $ find (\name_type (fst name_type) == name) env
+getType (IntLit _) _ _ = 'Int'
+getType (TyInt _) _ _ = 'Int'
+getType (BoolLit _) _ _ = 'Bool'
+getType (TyBool _) _ _ = 'Bool'
+
+getType (Infix (Eq|NEq|GTh|LTh|GEq|LEq) _ expr1 expr2) _ _ = --TODO: Less than para bools??
+  'Bool' if ((getType then_expr) == (getType else_expr)) else False --TODO: función se llama dos veces
+--'Int' if (all (\x -> x `elem` ['Int', 'Bool']) $ map getType [expr1, expr2]) else False
+  
+getType (Infix (Add|Sub|Mult|Div) _ expr1 expr2) _ _ =
+  'Int' if (all (=='Int') $ map getType [expr1, expr2]) else False
+
+getType (If (condition then_expr else_expr)) _ _ = 
+  (getType then_expr) --TODO: función se llama dos veces y retornar error en vez de false
+  if (getType then_expr) == 'Bool' && (getType then_expr) == (getType else_expr)
+  else False
+
+getType (Let ((to_substitute_name, to_substitute_type) substituted_expr final_expression)) env defs =
+  (getType final_expression env defs)
+  if (getType substituted_expr env defs) == (getType to_substitute_type env defs) 
+    && (getType to_substitute_name env defs) == (getType to_substitute_type env defs)
+    -- TODO: Quitar ultima condicion? Agregar checkeo extra de si x tiene el mismo tipo que las x en e'.
+  else False
+
+getType (App (Name name) expressions) env defs = --TODO: Releer letra asquerosa
+  getFunctionType $ getFunctionDefinitionByName name
+  if all (==True) $ zipWith (==) (map (\x -> getType x env defs) (getFunctionDefinitionByName name defs)) (map getType expressions)
+  else False
+
+-- TODO: agregar los checked
+-- TODO: Hacer lets.
+checkExpressionTypes :: Program -> Env -> Checked
+checkExpressionTypes (Program defs expressions) env = 
+  concatMap (\x -> getType x env defs) expressions --TODO: Agregar errores
+
+  
+
+-- ########################################
+-- ################# ALL ##################
+-- ########################################
 
 checkProgram :: Program -> Checked
 checkProgram = do
-
