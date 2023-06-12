@@ -45,8 +45,8 @@ instance Show Error where
 
 
 -- Primer chequeo, repeticion de nombres. Si no hay errores, se devuelve 'Ok'. Si hay errores, se devuelven los errores.
-checkRepeatedNames :: Program -> Checked
-checkRepeatedNames (Program defs _) = if (checkFunctionDeclarations (Program defs _) == []) && (checkParamsNames (Program defs _) == []) then Ok else Wrong (checkFunctionDeclarations (Program defs _) ++ checkParamsNames (Program defs _))
+checkRepeatedNames :: Program -> [Error]
+checkRepeatedNames prog = if (checkFunctionDeclarations prog == []) && ((checkParamsNames prog) == []) then [] else (checkFunctionDeclarations prog ++ checkParamsNames prog)
 
 -- Chequeo de multiples declaraciones de una misma funcion. Dado un programa, esta funcion devuelve una lista de errores tal que cada vez que se repite la declaracion de una funcion se agrega un error 'Duplicated' a la lista.
 checkFunctionDeclarations :: Program -> [Error]
@@ -80,19 +80,19 @@ findRepeatedParams xs = concatMap findRepeated xs
 
 
 -- Tercer chequeo, nombres no declarados. Si no hay errores, se devuelve 'Ok'. Si hay errores, se devuelven los errores.
-checkUndefinedNames :: Program -> Checked
-checkUndefinedNames (Program defs expr) = if (checkUndefinedNamesFuncDecl (Program defs expr) == []) && (checkUndefinedNamesMain (Program defs expr) == []) then Ok else Wrong (checkUndefinedNamesFuncDecl (Program defs expr) ++ checkUndefinedNamesMain (Program defs expr))
+checkUndefinedNames :: Program -> [Error]
+checkUndefinedNames prog = if (checkUndefinedNamesFuncDecl prog == []) && (checkUndefinedNamesMain prog == []) then [] else (checkUndefinedNamesFuncDecl prog ++ checkUndefinedNamesMain prog)
 
 -- Chequeo de nombres no declarados en la declaracion de funciones.
 checkUndefinedNamesFuncDecl :: Program -> [Error]
-checkUndefinedNamesFuncDecl (Program defs _) = concatMap (checkUndefinedNamesFuncDecl' defs)
+checkUndefinedNamesFuncDecl (Program defs _) = concatMap checkUndefinedNamesFuncDecl' defs
 
 checkUndefinedNamesFuncDecl' :: FunDef -> [Error]
-checkUndefinedNamesFuncDecl' (FunDef (name, _) params expr) = checkUndefindedNamesExpr expr params
+checkUndefinedNamesFuncDecl' (FunDef (name, _) params expr) = checkUndefinedNamesExpr expr params
 
 -- Chequeo de nombres no declarados en la expresion principal.
 checkUndefinedNamesMain :: Program -> [Error]
-checkUndefinedNamesMain (Program defs expr) = checkUndefindedNamesExpr expr (map getFunctionName defs)
+checkUndefinedNamesMain (Program defs expr) = checkUndefinedNamesExpr expr (map getFunctionName defs)
 
 -- Dada una expresion y una lista de nombres declarados, esta funcion devuelve una lista de errores tal que cada vez que se encuentra un nombre no declarado se agrega un error 'Undefined' a la lista.
 checkUndefinedNamesExpr :: Expr -> [String] -> [Error]
@@ -114,91 +114,121 @@ checkUndefinedNamesExpr expr declaredNames = go expr declaredNames []
 -- ######################################
 
 -- Counts number of parameters from each function **declaration**
-getFunctionParamCounts :: Defs -> [(String, Number)] -> [(String, Number)]
+getFunctionParamCounts :: Defs -> [(String, Int)] -> [(String, Int)]
 getFunctionParamCounts [] results = results
-getFunctionParamCounts (((name, _) params _):xs) result = 
-  getFunctionParamCounts xs (result:(name, length params))
+getFunctionParamCounts ((FunDef (name, _) params _):xs) result = 
+  getFunctionParamCounts xs ((name, length params):result)
 
 -- Counts number of parameters from each function **expression**
-getExpressionParamCounts :: Expr -> [(String, Number)]
+getExpressionParamCounts :: Expr -> [(String, Int)]
 getExpressionParamCounts (App name expressions) = 
   (name, length expressions) : (concatMap getExpressionParamCounts expressions)
 getExpressionParamCounts (Infix operator expr_left expr_right) = 
-  (getExpressionParamCounts expr_left) ++ (getExpressionParamCounts expressions)
+  (getExpressionParamCounts expr_left) ++ (getExpressionParamCounts expr_right)
 getExpressionParamCounts (If condition_expr then_expr else_expr) = 
-  (getExpressionParamCounts condition_expr) ++ (getExpressionParamCounts else_expr)
-getExpressionParamCounts (Let expr1 expr2) =
+  (getExpressionParamCounts condition_expr) ++ (getExpressionParamCounts then_expr) ++ (getExpressionParamCounts else_expr)
+getExpressionParamCounts (Let operator expr1 expr2) =
   (getExpressionParamCounts expr1) ++ (getExpressionParamCounts expr2)
 getExpressionParamCounts (_) = []
 
 -- For a given a key-pair tuple, 
 -- asserts that for each key-value pair in a list of tuples, 
 -- there is no key so that key1 == key2 and value1 != value2.
-checkDictInconsistency :: (String, Number) -> [(String, Number)] -> Bool
+checkDictInconsistency :: (String, Int) -> [(String, Int)] -> Bool
 checkDictInconsistency (key, value) [] = True
 checkDictInconsistency (key, value) ((other_key, other_value):xs)
   | key==other_key && value == other_value = False
-  | otherwise = checkDictInconsistency (key, value) (xs)
+  | otherwise = checkDictInconsistency (key, value) xs
 
-checkDictInconsistencies :: [(String, Number)] -> [(String, Number)] -> Bool
+checkDictInconsistencies :: [(String, Int)] -> [(String, Int)] -> Bool
 checkDictInconsistencies tuples1 tuples2 = all (==True) $ map (\tuple -> checkDictInconsistency tuple tuples2) tuples1
 
-checkParamNumbers :: Program -> Checked
+checkParamInts :: Program -> Checked
 -- TODO: Arreglar getApp
-checkParamNumbers (Program defs expressions) = 
-  checkDictInconsistencies (getFunctionParamCounts [] defs) (concatMap getExpressionParamCounts expressions)
+checkParamInts (Program defs expr) = 
+  if
+  checkDictInconsistencies (getFunctionParamCounts defs []) (getExpressionParamCounts expr)
+  then Ok else Wrong []
 
 -- ########################################
 -- ############# CHECKER 2.4 ##############
 -- ########################################
 
 -- HELPERS-----------
-getFunctionDefinitionByName :: String -> [Def] -> Maybe FunDef
-getFunctionDefinitionByName name defs = find (\((f_name, _) _ _) -> f_name == name) defs
+getFunctionDefinitionByName :: String -> Defs -> Maybe FunDef
+getFunctionDefinitionByName name defs = find (\(FunDef (f_name, _) _ _) -> f_name == name) defs
 
 getFunctionParamsType :: FunDef -> [Type]
-getFunctionParamsType (FunDef (TypedFun (_, (param_types, _)) _ _)) = param_types
+getFunctionParamsType (FunDef (_, (Sig param_types  _)) _ _) = param_types
 
 getFunctionType :: FunDef -> Type
-getFunctionTypes (FunDef (TypedFun (_, (_, function_type)) _ _)) = function_type
+getFunctionType (FunDef (_, (Sig _  function_type)) _ _) = function_type
 ------------------
 
-getType :: (Expr | Type) -> Env -> Defs -> (String | Error)
-getType (Var name) env _ = getType $ snd $ find (\name_type (fst name_type) == name) env
-getType (IntLit _) _ _ = 'Int'
-getType (TyInt _) _ _ = 'Int'
-getType (BoolLit _) _ _ = 'Bool'
-getType (TyBool _) _ _ = 'Bool'
+handleExpressionComparison :: Expr -> Expr -> String -> String
+handleExpressionComparison expr1 expr2 type_expression = --TODO: Less than para bools??
+  if ((getType (expr1) [] []) == (getType (expr2) [] [])) then (getType (type_expression) [] []) else "error"
 
-getType (Infix (Eq|NEq|GTh|LTh|GEq|LEq) _ expr1 expr2) _ _ = --TODO: Less than para bools??
-  'Bool' if ((getType then_expr) == (getType else_expr)) else False --TODO: función se llama dos veces
---'Int' if (all (\x -> x `elem` ['Int', 'Bool']) $ map getType [expr1, expr2]) else False
-  
-getType (Infix (Add|Sub|Mult|Div) _ expr1 expr2) _ _ =
-  'Int' if (all (=='Int') $ map getType [expr1, expr2]) else False
+handleArithmeticComparison :: Expr -> Expr -> String
+handleArithmeticComparison expr1 expr2 =
+  if (all (=="Int") $ map getType [expr1, expr2]) then "Int" else "False"
 
-getType (If (condition then_expr else_expr)) _ _ = 
-  (getType then_expr) --TODO: función se llama dos veces y retornar error en vez de false
-  if (getType then_expr) == 'Bool' && (getType then_expr) == (getType else_expr)
-  else False
+getType :: Either Expr Type -> Env -> Defs -> String
+getType (Left (Var name)) env _ = getType $ snd $ find (\name_type -> (fst name_type) == name) env
+getType (Left (IntLit _)) _ _ = "Int"
+getType (Right TyInt) _ _ = "Int"
 
-getType (Let ((to_substitute_name, to_substitute_type) substituted_expr final_expression)) env defs =
-  (getType final_expression env defs)
+getType (Left (BoolLit _)) _ _ = "Bool"
+getType (Right TyBool) _ _ = "Bool"
+
+getType (Infix Eq expr1 expr2) _ _ =
+  handleExpressionComparison expr1 expr2 "Bool"
+getType (Infix NEq expr1 expr2) _ _ =
+  handleExpressionComparison expr1 expr2 "Bool"
+getType (Infix GTh expr1 expr2) _ _ =
+  handleExpressionComparison expr1 expr2 "Bool"
+getType (Infix LTh expr1 expr2) _ _ =
+  handleExpressionComparison expr1 expr2 "Bool"
+getType (Infix GEq expr1 expr2) _ _ =
+  handleExpressionComparison expr1 expr2 "Bool"
+getType (Infix LEq expr1 expr2) _ _ =
+  handleExpressionComparison expr1 expr2 "Bool"
+
+-- getType (Infix (Either Eq (Either NEq (Either GTh (Either LTh (Either GEq LEq))))) _ expr1 expr2) _ _ = --TODO: Less than para bools??
+--   if ((getType expr1) == (getType expr2)) then "Bool" else 'error' --TODO: función se llama dos veces
+--"Int" if (all (\x -> x `elem` ["Int", "Bool"]) $ map getType [expr1, expr2]) else False
+
+getType (Infix Add expr1 expr2) _ _ = handleArithmeticComparison expr1 expr2
+getType (Infix Sub expr1 expr2) _ _ = handleArithmeticComparison expr1 expr2
+getType (Infix Mult expr1 expr2) _ _ = handleArithmeticComparison expr1 expr2
+getType (Infix Div expr1 expr2) _ _ = handleArithmeticComparison expr1 expr2
+
+-- getType (Infix (Either Add (Either Sub (Either Mult Div))) _ expr1 expr2) _ _ =
+--   if (all (=="Int") $ map getType [expr1, expr2]) then "Int" else "False"
+
+getType (If condition then_expr else_expr) _ _ = 
+   --TODO: función se llama dos veces y retornar error en vez de false
+  if (getType then_expr) == "Bool" && (getType then_expr) == (getType else_expr)
+  then (getType then_expr)
+  else "False"
+
+getType (Let (to_substitute_name, to_substitute_type) substituted_expr final_expression) env defs =
   if (getType substituted_expr env defs) == (getType to_substitute_type env defs) 
     && (getType to_substitute_name env defs) == (getType to_substitute_type env defs)
     -- TODO: Quitar ultima condicion? Agregar checkeo extra de si x tiene el mismo tipo que las x en e'.
-  else False
+  then (getType final_expression env defs)
+  else "False"
 
-getType (App (Name name) expressions) env defs = --TODO: Releer letra asquerosa
-  getFunctionType $ getFunctionDefinitionByName name
+getType (App name expressions) env defs = --TODO: Releer letra asquerosa
   if all (==True) $ zipWith (==) (map (\x -> getType x env defs) (getFunctionDefinitionByName name defs)) (map getType expressions)
-  else False
+  then getFunctionType $ getFunctionDefinitionByName name
+  else "False"
 
 -- TODO: agregar los checked
 -- TODO: Hacer lets.
 checkExpressionTypes :: Program -> Env -> Checked
-checkExpressionTypes (Program defs expressions) env = 
-  concatMap (\x -> getType x env defs) expressions --TODO: Agregar errores
+checkExpressionTypes (Program defs expr) env = 
+  map (\x -> getType x env defs) expr --TODO: Agregar errores
 
   
 
@@ -206,5 +236,23 @@ checkExpressionTypes (Program defs expressions) env =
 -- ################# ALL ##################
 -- ########################################
 
-checkProgram :: Program -> Checked
-checkProgram = do
+-- checkProgram :: Program -> Checked
+-- checkProgram prog = 
+--   if checkRepeatedNames prog == Wrong errors then Wrong errors else
+--   if checkParamInts prog == Wrong errors then Wrong errors else
+--   if checkUndefinedNames prog == Wrong errors then Wrong errors else
+--   -- if checkExpressionTypes prog == Wrong errors then Wrong errors else
+--   Ok
+
+checkProgram' :: Program -> Checked
+checkProgram' prog =
+  if errors1 /= [] then Wrong errors1 else
+  if errors2 /= [] then Wrong errors2 else
+  if errors3 /= [] then Wrong errors3 else
+  -- if errors4 != [] then Wrong errors4 else
+  Ok
+    where
+      errors1 = checkRepeatedNames prog
+      errors2 = checkParamsInt prog
+      errors3 = checkUndefinedNames prog
+      -- errors4 = checkExpressionTypes prog
