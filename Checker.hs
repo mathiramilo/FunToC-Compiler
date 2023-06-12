@@ -107,7 +107,7 @@ checkUndefinedNamesExpr expr declaredNames = go expr declaredNames []
     go (Infix _ expr1 expr2) declaredNames errors = go expr1 declaredNames (go expr2 declaredNames errors)
     go (If expr1 expr2 expr3) declaredNames errors = go expr1 declaredNames (go expr2 declaredNames (go expr3 declaredNames errors))
     go (Let (name, _) expr1 expr2) declaredNames errors = go expr1 declaredNames (go expr2 (declaredNames ++ [name]) errors)
-    go (App _ exprs) declaredNames errors = concatMap (\expr -> go expr declaredNames errors) exprs
+    go (App name exprs) declaredNames errors = concatMap (\expr -> go expr declaredNames errors) exprs ++ if name `elem` declaredNames then errors else errors ++ [Undefined name]
 
 -- ######################################
 -- #############CHECKER 2.2##############
