@@ -43,7 +43,6 @@ instance Show Error where
 -- #############CHECKER 2.1##############
 -- ######################################
 
-
 -- Primer chequeo, repeticion de nombres. Si no hay errores, se devuelve 'Ok'. Si hay errores, se devuelven los errores.
 checkRepeatedNames :: Program -> [Error]
 checkRepeatedNames prog = if (checkFunctionDeclarations prog == []) && ((checkParamsNames prog) == []) then [] else (checkFunctionDeclarations prog ++ checkParamsNames prog)
@@ -78,6 +77,9 @@ getFunctionParams (FunDef (_, _) params _) = params
 findRepeatedParams :: [[String]] -> [Error]
 findRepeatedParams xs = concatMap findRepeated xs
 
+-- ######################################
+-- #############CHECKER 2.3##############
+-- ######################################
 
 -- Tercer chequeo, nombres no declarados. Si no hay errores, se devuelve 'Ok'. Si hay errores, se devuelven los errores.
 checkUndefinedNames :: Program -> [Error]
@@ -244,15 +246,30 @@ checkExpressionTypes (Program defs expr) env =
 --   -- if checkExpressionTypes prog == Wrong errors then Wrong errors else
 --   Ok
 
-checkProgram' :: Program -> Checked
-checkProgram' prog =
-  if errors1 /= [] then Wrong errors1 else
-  if errors2 /= [] then Wrong errors2 else
-  if errors3 /= [] then Wrong errors3 else
-  -- if errors4 != [] then Wrong errors4 else
-  Ok
-    where
-      errors1 = checkRepeatedNames prog
-      errors2 = checkParamsInt prog
-      errors3 = checkUndefinedNames prog
-      -- errors4 = checkExpressionTypes prog
+-- checkProgram :: Program -> Checked
+-- checkProgram prog =
+--   if errors1 /= [] then Wrong errors1 else
+--   if errors2 /= [] then Wrong errors2 else
+--   if errors3 /= [] then Wrong errors3 else
+--   -- if errors4 != [] then Wrong errors4 else
+--   Ok
+--     where
+--       errors1 = checkRepeatedNames prog
+--       errors2 = checkParamInts prog
+--       errors3 = checkUndefinedNames prog
+--       -- errors4 = checkExpressionTypes prog
+
+
+-- IMPORTANTE: Hay que hacer que cada checker devuelva una lista de errores
+checkProgram :: Program -> Checked
+checkProgram prog
+  | errors1 /= [] = Wrong errors1
+  | errors2 /= [] = Wrong errors2
+  | errors3 /= [] = Wrong errors3
+  -- | errors4 /= [] = Wrong errors4
+  | otherwise = Ok
+  where
+    errors1 = checkRepeatedNames prog
+    errors2 = checkParamInts prog
+    errors3 = checkUndefinedNames prog
+    -- errors4 = checkExpressionTypes prog
