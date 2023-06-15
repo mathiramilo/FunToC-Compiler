@@ -76,36 +76,15 @@ genFunctionDecl (FunDef (name, sig) params expr) =
           paramName = "_" ++ name
           (expr1, _) = genExpr e1
           (expr2, _) = genExpr e2
-      in (varName ++ "(" ++ expr1 ++ ")", varType ++ " " ++ varName ++ "(" ++ varType ++ paramName ++ "){\n" ++ "return (" ++ genExpr expr2 ++ "); };")
+      in (varName ++ "(" ++ expr1 ++ ")", varType ++ " " ++ varName ++ "(" ++ varType ++ paramName ++ "){\n" ++ "return (" ++ expr2 ++ "); };")
     genExpr (App name args) =
       let argList = genArgs args
       in ("_" ++ name ++ "(" ++ argList ++ ")", "")
       where
         genArgs :: [Expr] -> String
         genArgs [] = ""
-        genArgs [x] = genExpr x
-        genArgs (x:xs) = genExpr x ++ "," ++ genArgs xs
-
-    -- Funcion encargada de generar el codigo C de las declaraciones de lets
-    genExprLets :: Expr -> Int -> String
-    genExprLets (Var name) _ = ""
-    genExprLets (IntLit n) _ = ""
-    genExprLets (BoolLit b) _ = ""
-    genExprLets (Infix op e1 e2) count = genExprLets e1 count ++ genExprLets e2 count
-    genExprLets (If cond e1 e2) count = genExprLets cond count ++ genExprLets e1 count ++ genExprLets e2 count
-    genExprLets (Let (name, typ) e1 e2) count =
-      let varType = genType typ
-          varName = "_let" ++ show count
-          paramName = "_" ++ name
-          expr1 = genExpr e1 count
-          expr2 = genExpr e2 count
-      in varType ++ " " ++ varName ++ "(" ++ varType ++ paramName ++ "){\n" ++ "return (" ++ genExprLets e2 count ++ "); };"
-    genExprLets (App name args) count = genExprLetsArgs args
-      where
-        genExprLetsArgs :: [Expr] -> String
-        genExprLetsArgs [] = ""
-        genExprLetsArgs [x] = genExprLets x count
-        genExprLetsArgs (x:xs) = genExprLets x count ++ genExprLetsArgs xs
+        genArgs [x] = fst(genExpr x)
+        genArgs (x:xs) = fst(genExpr x) ++ "," ++ genArgs xs
 
 genType :: Type -> String
 genType TyInt = "int"

@@ -145,12 +145,12 @@ checkDictInconsistency (key, value) ((other_key, other_value):xs)
 checkDictInconsistencies :: [(String, Int)] -> [(String, Int)] -> Bool
 checkDictInconsistencies tuples1 tuples2 = all (==True) $ map (\tuple -> checkDictInconsistency tuple tuples2) tuples1
 
-checkParamInts :: Program -> Checked
+checkParamInts :: Program -> [Error]
 -- TODO: Arreglar getApp
 checkParamInts (Program defs expr) = 
   if
   checkDictInconsistencies (getFunctionParamCounts defs []) (getExpressionParamCounts expr)
-  then Ok else Wrong []
+  then [] else [ArgNumDef "Error" 1 4] 
 
 -- ########################################
 -- ############# CHECKER 2.4 ##############
@@ -253,8 +253,8 @@ checkExpressionTypes (Program defs expr) env = getType expr env defs --TODO: Agr
 -- ################# ALL ##################
 -- ########################################
 
-checkProgram :: Program -> Checked
-checkProgram prog = Ok
+-- checkProgram :: Program -> Checked
+-- checkProgram prog = Ok
   -- if checkRepeatedNames prog == Wrong errors then Wrong errors else
   -- if checkParamInts prog == Wrong errors then Wrong errors else
   -- if checkUndefinedNames prog == Wrong errors then Wrong errors else
@@ -286,9 +286,9 @@ checkProgram prog = Ok
 -- IMPORTANTE: Hay que hacer que cada checker devuelva una lista de errores
 checkProgram :: Program -> Checked
 checkProgram prog
-  | errors1 /= [] = Wrong errors1
-  | errors2 /= [] = Wrong errors2
-  | errors3 /= [] = Wrong errors3
+  | null errors1 = Wrong errors1
+  | null errors2 = Wrong errors2
+  | null errors3 = Wrong errors3
   -- | errors4 /= [] = Wrong errors4
   | otherwise = Ok
   where
