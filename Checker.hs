@@ -290,8 +290,8 @@ checkExpressionTypes (Program defs expr) env
 -- ################# ALL ##################
 -- ########################################
 
-checkProgram :: Program -> Checked
-checkProgram prog = Ok
+-- checkProgram :: Program -> Checked
+-- checkProgram prog = Ok
   -- if checkRepeatedNames prog == Wrong errors then Wrong errors else
   -- if checkParamInts prog == Wrong errors then Wrong errors else
   -- if checkUndefinedNames prog == Wrong errors then Wrong errors else
@@ -321,15 +321,15 @@ checkProgram prog = Ok
 
 
 -- IMPORTANTE: Hay que hacer que cada checker devuelva una lista de errores
--- checkProgram :: Program -> Checked
--- checkProgram prog
---   | errors1 /= [] = Wrong errors1
---   | errors2 /= [] = Wrong errors2
---   | errors3 /= [] = Wrong errors3
---   -- | errors4 /= [] = Wrong errors4
---   | otherwise = Ok
---   where
---     errors1 = checkRepeatedNames prog
---     errors2 = checkParamInts prog
---     errors3 = checkUndefinedNames prog
+checkProgram :: Program -> Checked
+checkProgram prog
+  | null errors1 = Wrong errors1
+  | null errors2 = Wrong errors2
+  | null errors3 = Wrong errors3
+  -- | errors4 /= [] = Wrong errors4
+  | otherwise = Ok
+  where
+    errors1 = checkRepeatedNames prog
+    errors2 = checkParamInts prog
+    errors3 = checkUndefinedNames prog
     -- errors4 = checkExpressionTypes prog
