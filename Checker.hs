@@ -371,15 +371,15 @@ checkExpressionTypes (Program defs expr) = errors
 
 
 -- -- IMPORTANTE: Hay que hacer que cada checker devuelva una lista de errores
--- checkProgram :: Program -> Checked
--- checkProgram prog
---   | length errors1 != 0 = Wrong errors1
---   | length errors2 != 0 = Wrong errors2
---   | length errors3 != 0 = Wrong errors3
---   | length errors4 != 0 = Wrong errors4
---   | otherwise = Ok
---   where
---     errors1 = checkRepeatedNames prog
---     errors2 = checkParamInts prog
---     errors3 = checkUndefinedNames prog
---     errors4 = checkExpressionTypes prog
+checkProgram :: Program -> Checked
+checkProgram prog
+  | length errors1 /= 0 = Wrong errors1
+  | length errors2 /= 0 = Wrong errors2
+  | length errors3 /= 0 = Wrong errors3
+  | length errors4 /= 0 = Wrong errors4
+  | otherwise = Ok
+  where
+    errors1 = checkRepeatedNames prog
+    errors2 = checkParamInts prog
+    errors3 = checkUndefinedNames prog
+    errors4 = checkExpressionTypes prog
