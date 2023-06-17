@@ -28,31 +28,39 @@ def compare_each_line(tests_idx: list[int], err: bool = False):
 
     for test_idx in tests_idx:
         if err:
-            with open(f"localtests/ejemplo{test_idx}err.err", "r") as file1:
-                file1_lines = file1.readlines()
-            with open(f"tests/ejemplo{test_idx}err.err", "r") as file2:
-                file2_lines = file2.readlines()
+            file1_dir = f"localtests/ejemplo{test_idx}err.err"
+            file2_dir = f"tests/ejemplo{test_idx}err.err"
         else:
-            with open(f"localtests/ejemplo{test_idx}err.err", "r") as file1:
-                file1_lines = file1.readlines()
-            with open(f"tests/ejemplo{test_idx}err.err", "r") as file2:
-                file2_lines = file2.readlines()
+            file1_dir = f"localtests/ejemplo{test_idx}.out"
+            file2_dir = f"tests/ejemplo{test_idx}.out"
+
+        if not os.path.exists(file1_dir) or not os.path.exists(file2_dir):
+            continue
+
+        with open(file1_dir, "r") as file1:
+            file1_lines = file1.readlines()
+        with open(file2_dir, "r") as file2:
+            file2_lines = file2.readlines()
 
         for i in range(len(file1_lines)):
             if file1_lines[i] != file2_lines[i]:
-                print(f"Error in test error: {err} - id: {test_idx} in line {i+1}")
-                print(f"Expected: {file1_lines[i]}")
-                print(f"Obtained: {file2_lines[i]}")
+                print("-" * 115)
+                print(f"Error in test {file1_dir} - {file2_dir} ❌")
+                print(f"Expected: {file1_lines[i]}", end="")
+                print(f"Obtained: {file2_lines[i]}", end="")
                 if os.path.exists(f"localtests/ejemplo{test_idx}err.err"):
-                    print(f"localtests/ejemplo{test_idx}err.err: {file1_lines[i]}")
+                    print(f"localtests/ejemplo{test_idx}err.err: {file1_lines[i]}", end="")
                 if os.path.exists(f"tests/ejemplo{test_idx}err.err"):
-                    print(f"tests/ejemplo{test_idx}err.err: {file2_lines[i]}")
+                    print(f"tests/ejemplo{test_idx}err.err: {file2_lines[i]}", end="")
+                print("-" * 115, end="\n\n")
+            else:
+                print(f"Test {file1_dir} - {file2_dir} passed ✅", end="\n\n")
+
 
 if __name__ == "__main__":
     only_compare = bool(sys.argv[1]) if len(sys.argv) > 1 else False
     tests_with_errors = range(1, 5)
-    tests_without_errors = range(1, 10)
-
+    tests_without_errors = range(1, 11)
 
     if not only_compare:
         remove_temp_files()
