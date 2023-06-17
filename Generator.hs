@@ -13,6 +13,7 @@ import Syntax
 -- se pueden agregar mas importaciones 
 -- en caso de ser necesario
 import Data.List (intercalate)
+import Data.ByteString (count)
 
 -- CODE GENERATOR
 
@@ -33,8 +34,8 @@ genFunctionDecl (FunDef (name, sig) params expr) =
   let returnType = genType (sigReturnType sig)
       paramList = genParams params
       functionHeader = returnType ++ " " ++ "_" ++ name ++ "(" ++ paramList ++ ")"
-      (functionLets, functionBody) = genExpr expr
-  in functionHeader ++ "{\n" ++ functionLets ++ functionBody ++ "};\n"
+      (body, lets, _) = genExpr expr 0
+  in functionHeader ++ "{\n" ++ lets ++ "return (" ++ body ++ "); };"
   where
     genParams :: [Name] -> String
     genParams [] = ""
@@ -42,86 +43,65 @@ genFunctionDecl (FunDef (name, sig) params expr) =
     genParams (x:xs) = genParam x ++ "," ++ genParams xs
 
     genParam :: Name -> String
-    genParam name = "_" ++ name
+    genParam name = "int _" ++ name
 
     sigReturnType :: Sig -> Type
     sigReturnType (Sig _ returnType) = returnType
-
-    -- Funcion encargada de generar el codigo C de una expresion
-    genExpr :: Expr -> (String, String)
-    genExpr (Var name) = ("_" ++ name, "")
-    genExpr (IntLit n) = (show n, "")
-    genExpr (BoolLit b) = (if b then "1" else "0", "")
-    genExpr (Infix op e1 e2) =
-      let opStr = genOp op
-          (arg1, _) = genExpr e1
-          (arg2, _) = genExpr e2
-      in ("(" ++ arg1 ++ opStr ++ arg2 ++ ")", "")
-    genExpr (If cond e1 e2) =
-      let (condition, _) = genExpr cond
-          (thenExpr, _) = genExpr e1
-          (elseExpr, _) = genExpr e2
-      in (condition ++ "?(" ++ thenExpr ++ "):(" ++ elseExpr ++ ")", "")
-    -- REVISAR: La transformacion de let a C no es de esta manera
-    genExpr (Let (name, typ) e1 e2) = 
-      let varType = genType typ
-          varName = "_let" ++ show randomInt
-          paramName = "_" ++ name
-          (expr1, _) = genExpr e1
-          (expr2, _) = genExpr e2
-      in (varName ++ "(" ++ expr1 ++ ")", varType ++ " " ++ varName ++ "(" ++ varType ++ paramName ++ "){\n" ++ "return (" ++ expr2 ++ "); };")
-    genExpr (App name args) =
-      let argList = genArgs args
-      in ("_" ++ name ++ "(" ++ argList ++ ")", "")
-      where
-        genArgs :: [Expr] -> String
-        genArgs [] = ""
-        genArgs [x] = fst(genExpr x)
-        genArgs (x:xs) = fst(genExpr x) ++ "," ++ genArgs xs
 
 
 -- Funcion encargada de generar el codigo C de la expresion principal
 genMainExpr :: Expr -> String
 genMainExpr expr =
-  let (lets, body) = genExpr expr
+  let (body, lets, _) = genExpr expr 0
   in "\nint main() {\n" ++ lets ++ "printf(\"%d\\n\"," ++ body ++ "); }\n"
+
+
+-- Funcion encargada de generar el codigo C de una expresion, retorna una tupla con el cuerpo de la expresion, las declaraciones de lets y la cantidad de lets que se han generado
+genExpr :: Expr -> Int -> (String, String, Int)
+
+genExpr (Var name) count = ("_" ++ name, "", count)
+genExpr (IntLit n) count = (show n, "", count)
+genExpr (BoolLit b) count = (if b then "1" else "0", "", count)
+
+genExpr (Infix op e1 e2) count =
+  let opStr = genOp op
+      (expr1Bdy, expr1Lets, letsQty1) = genExpr e1 count
+      (expr2Bdy, expr2Lets, letsQty2) = genExpr e2 letsQty1
+  in ("(" ++ expr1Bdy ++ opStr ++ expr2Bdy ++ ")", expr1Lets ++ expr2Lets, letsQty2)
+
+genExpr (If cond e1 e2) count =
+  let (condBdy, condLets, letsQty1) = genExpr cond count
+      (thenBdy, thenLets, letsQty2) = genExpr e1 letsQty1
+      (elseBdy, elseLets, letsQty3) = genExpr e2 letsQty2
+  in (condBdy ++ "?(" ++ thenBdy ++ "):(" ++ elseBdy ++ ")", condLets ++ thenLets ++ elseLets, letsQty3)
+
+genExpr (Let (name, typ) e1 e2) count = 
+  let varType = genType typ
+      varName = "_let" ++ show count
+      paramName = " _" ++ name
+      (expr1Bdy, expr1Lets, letsQty1) = genExpr e1 (count + 1)
+      (expr2Bdy, expr2Lets, letsQty2) = genExpr e2 letsQty1
+  in (varName ++ "(" ++ expr1Bdy ++ ")", varType ++ " " ++ varName ++ "(" ++ varType ++ paramName ++ "){\n" ++ "return (" ++ expr2Bdy ++ "); };\n" ++ expr1Lets ++ expr2Lets, letsQty2)
+
+genExpr (App name args) count =
+  let (argList, argLets, letsQty) = genArgs args count
+  in ("_" ++ name ++ "(" ++ argList ++ ")", argLets, letsQty)
   where
-    genExpr :: Expr -> (String, String)
-    genExpr (Var name) = ("_" ++ name, "")
-    genExpr (IntLit n) = (show n, "")
-    genExpr (BoolLit b) = (if b then "1" else "0", "")
-    genExpr (Infix op e1 e2) =
-      let opStr = genOp op
-          (arg1, _) = genExpr e1
-          (arg2, _) = genExpr e2
-      in ("(" ++ arg1 ++ opStr ++ arg2 ++ ")", "")
-    genExpr (If cond e1 e2) =
-      let (condition, _) = genExpr cond
-          (thenExpr, _) = genExpr e1
-          (elseExpr, _) = genExpr e2
-      in (condition ++ "?(" ++ thenExpr ++ "):(" ++ elseExpr ++ ")", "")
-    -- REVISAR: La transformacion de let a C no es de esta manera
-    genExpr (Let (name, typ) e1 e2) = 
-      let varType = genType typ
-          varName = "_let" ++ show randomInt
-          paramName = "_" ++ name
-          (expr1, _) = genExpr e1
-          (expr2, _) = genExpr e2
-      in (varName ++ "(" ++ expr1 ++ ")", varType ++ " " ++ varName ++ "(" ++ varType ++ paramName ++ "){\n" ++ "return (" ++ expr2 ++ "); };")
-    genExpr (App name args) =
-      let argList = genArgs args
-      in ("_" ++ name ++ "(" ++ argList ++ ")", "")
+    genArgs :: [Expr] -> Int -> (String, String, Int)
+    genArgs [] letsCount = ("", "", letsCount)
+    genArgs [x] letsCount = genExpr x letsCount
+    genArgs (x:xs) letsCount = (argBdy1 ++ "," ++ argBdy2, argLets1 ++ argLets2, letsQty2)
       where
-        genArgs :: [Expr] -> String
-        genArgs [] = ""
-        genArgs [x] = fst(genExpr x)
-        genArgs (x:xs) = fst(genExpr x) ++ "," ++ genArgs xs
+        (argBdy1, argLets1, letsQty1) = genExpr x letsCount
+        (argBdy2, argLets2, letsQty2) = genArgs xs letsQty1
 
 
+-- Funcion encargada de generar el codigo C de un tipo
 genType :: Type -> String
 genType TyInt = "int"
 genType TyBool = "int"
 
+-- Funcion encargada de generar el codigo C de un operador
 genOp :: Op -> String
 genOp Add = " + "
 genOp Sub = " - "
@@ -133,7 +113,3 @@ genOp GTh = ">"
 genOp LTh = "<"
 genOp GEq = ">="
 genOp LEq = "<="
-
--- TODO: Funcion encargada de generar un numero aleatorio
-randomInt :: Int
-randomInt = 0
