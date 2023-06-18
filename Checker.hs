@@ -145,8 +145,8 @@ getExpressionParamCounts (_) = []
 checkDictInconsistency :: (String -> Int -> Int -> Error) -> (String, Int) -> [(String, Int)] -> [Error] -> [Error]
 checkDictInconsistency _ (key, value) [] errors = errors
 checkDictInconsistency error_callback (key, value) ((other_key, other_value):xs) errors
-  | key==other_key && value == other_value = checkDictInconsistency error_callback (key, value) xs errors
-  | otherwise = checkDictInconsistency error_callback (key, value) xs ((error_callback key value other_value):errors)
+  | (key==other_key && value /= other_value) = checkDictInconsistency error_callback (key, value) xs ((error_callback key value other_value):errors)
+  | otherwise = checkDictInconsistency error_callback (key, value) xs errors
 
 checkDictInconsistencies :: (String -> Int -> Int -> Error) -> [(String, Int)] -> [(String, Int)] -> [Error]
 checkDictInconsistencies error_callback tuples1 tuples2 = concatMap (\tuple -> checkDictInconsistency error_callback tuple tuples2 []) tuples1
@@ -158,7 +158,7 @@ checkParamInts (Program defs expr) = errors
     functionParamCounts = getFunctionParamCounts defs []
     error_callback_definition :: String-> Int -> Int -> Error
     error_callback_definition n s d = (ArgNumDef n s d)
-    errors = (checkDictInconsistencies (error_callback_definition) signatureParamCounts functionParamCounts)
+    errors = (checkDictInconsistencies error_callback_definition signatureParamCounts functionParamCounts)
 
 -- ########################################
 -- ############# CHECKER 2.4 ##############
@@ -413,7 +413,6 @@ checkExpressionTypes (Program defs expr) =  errors_functions ++ errors_main
 
 
 -- -- IMPORTANTE: Hay que hacer que cada checker devuelva una lista de errores
--- os.system("runhaskell Compiler.hs localtests/ejemplo4-b-err > localtests/ejemplo4-b-err.err")
 checkProgram :: Program -> Checked
 checkProgram prog
   | length errors1 /= 0 = Wrong errors1
