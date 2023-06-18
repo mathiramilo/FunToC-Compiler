@@ -103,13 +103,16 @@ checkUndefinedNamesExpr expr declaredNames = go expr declaredNames []
     go :: Expr -> [String] -> [Error] -> [Error]
     go (Var name) declaredNames errors
       | name `elem` declaredNames = errors
-      | otherwise = errors ++ [Undefined name]
+      | otherwise = [Undefined name] ++ errors 
     go (IntLit _) _ errors = errors
     go (BoolLit _) _ errors = errors
     go (Infix _ expr1 expr2) declaredNames errors = go expr1 declaredNames (go expr2 declaredNames errors)
     go (If expr1 expr2 expr3) declaredNames errors = go expr1 declaredNames (go expr2 declaredNames (go expr3 declaredNames errors))
     go (Let (name, _) expr1 expr2) declaredNames errors = go expr1 declaredNames (go expr2 (declaredNames ++ [name]) errors)
-    go (App name exprs) declaredNames errors = concatMap (\expr -> go expr declaredNames errors) exprs ++ if name `elem` declaredNames then errors else errors ++ [Undefined name]
+    go (App name exprs) declaredNames errors = 
+      let errors' = if name `elem` declaredNames then errors else errors ++ [Undefined name]
+      in errors' ++ concatMap (\expr -> go expr declaredNames errors) exprs
+
 
 -- ######################################
 -- #############CHECKER 2.2##############
@@ -152,7 +155,7 @@ checkDictInconsistencies :: (String -> Int -> Int -> Error) -> [(String, Int)] -
 checkDictInconsistencies error_callback tuples1 tuples2 = concatMap (\tuple -> checkDictInconsistency error_callback tuple tuples2 []) tuples1
 
 checkParamInts :: Program -> [Error]
-checkParamInts (Program defs expr) = errors
+checkParamInts (Program defs expr) = errors ++ [Duplicated $ show errors]
   where
     signatureParamCounts = getSignatureParamCounts defs []
     functionParamCounts = getFunctionParamCounts defs []
