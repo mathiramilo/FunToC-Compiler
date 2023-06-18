@@ -264,41 +264,54 @@ getType error_callback_application (Infix Div expr1 expr2) env defs =
 --   if (all (=="Int") $ map getType [expr1, expr2]) then "Int" else "False"
 
 getType error_callback_application (If condition then_expr else_expr) env defs = 
-  (returned_type, curr_returned_expression_error ++ curr_boolean_condition_error ++ subexpression_errors)
+  (returned_type, curr_boolean_condition_error ++ curr_returned_expression_error ++ subexpression_errors)
   where
     type_and_error_condition = getType error_callback_application condition env defs
     type_and_error_then = getType error_callback_application then_expr env defs
     type_and_error_else = getType error_callback_application else_expr env defs
-    returned_type = fst type_and_error_else
+    returned_type = fst type_and_error_then
     subexpression_errors = (snd type_and_error_condition) ++ (snd type_and_error_then) ++ (snd type_and_error_else)
     condition_type = fst type_and_error_condition
     then_type = fst type_and_error_then
     else_type = fst type_and_error_else
-    -- a = putStrLn $ show condition_type
     is_boolean_condition = condition_type == "Bool"
     are_equal_return_expressions = then_type == else_type
     curr_boolean_condition_error = if is_boolean_condition then [] else [getTypeError "Bool" condition_type]
-    curr_returned_expression_error = if are_equal_return_expressions then [] else [getTypeError else_type then_type]
+    curr_returned_expression_error = if are_equal_return_expressions then [] else [getTypeError then_type else_type]
 
 -- TODO: Quitar ultima condicion? Agregar checkeo extra de si x tiene el mismo tipo que las x en e'.
 getType error_callback_application (Let (to_substitute_name, to_substitute_type) substituted_expr final_expression) env defs =
-  (type_final_expression, curr_var_to_substitute_type_error ++ curr_substituted_to_substitute_type_error)
+  (type_final_expression, curr_substituted_to_substitute_type_error ++ errors_final_expression)
   where
-    final_expression_env = (to_substitute_name, to_substitute_type):env
-    type_and_error_substituted = getType error_callback_application substituted_expr env defs
-    type_and_error_var = getType error_callback_application (Var to_substitute_name) env defs
-    type_and_error_final_expression = getType error_callback_application final_expression final_expression_env defs
-    type_type_to_substitute = getTypeType to_substitute_type
+    env_without_substituted_variable = filter (\(name, _) -> name /= to_substitute_name) env
+
+    -- Get type in e' --> e'[x::t/e] <--
+    final_expression_env = (to_substitute_name, to_substitute_type):env_without_substituted_variable
+    type_and_errors_final_expression = getType error_callback_application final_expression final_expression_env defs
+    type_final_expression = fst type_and_errors_final_expression --FALTA SND
+    errors_final_expression = snd type_and_errors_final_expression
+
+    -- Compare types t ^ e --> e'[x::t/e] <-- (all (noLigado(x) and type(x)==t) types(x in t))
+    type_and_error_substituted = getType error_callback_application substituted_expr final_expression_env defs
     type_substituted = fst type_and_error_substituted
-    type_var = fst type_and_error_var
-    type_final_expression = fst type_and_error_final_expression
+    type_type_to_substitute = getTypeType to_substitute_type
     are_equal_type_substituted_to_substitute = type_substituted == type_type_to_substitute
-    are_equal_type_var_to_substitute = type_var == type_type_to_substitute
     curr_substituted_to_substitute_type_error = if are_equal_type_substituted_to_substitute then [] else [getTypeError type_type_to_substitute type_substituted]
-    curr_var_to_substitute_type_error = if are_equal_type_var_to_substitute then [] else [getTypeError type_type_to_substitute type_var]
+
+    -- Compare types t ^ x --> e'[x::t/e] <-- (all (noLigado(x) and type(x)==t) types(x in t))
+    -- TYPE OF T = to_substitute_type
+    -- TYPE OF X = ?.
+    -- ...
+    -- Type in x --> e'[x::t/e] <-- BORRAR BORRAR BORRAR
+    -- type_and_error_var = getType error_callback_application (Var to_substitute_name) env defs -- MAL. No tiene sentido checkear errores en una variable.
+    -- type_var = fst type_and_error_var -- Mal (error propagado)
+    -- are_equal_type_var_to_substitute = type_var == type_type_to_substitute --eh?
+    -- curr_var_to_substitute_type_error = if are_equal_type_var_to_substitute then [] else [getTypeError type_type_to_substitute type_var]
+
+
 
 getType error_callback_application (App name expressions) env defs = --TODO: Releer letra
-  (function_type,argument_count_errors ++ current_type_errors ++ errors_subexpressions) -- TODO: Ver orden
+  (function_type,argument_count_errors ++ current_parameter_type_errors ++ errors_subexpressions) -- TODO: Ver orden
     where
       -- Checks inconsistency in number of parameters of application-definition
       argument_count_errors = error_callback_application [(name, length expressions)]
@@ -314,10 +327,10 @@ getType error_callback_application (App name expressions) env defs = --TODO: Rel
       -- Checks each parameter 1 by 1 against definition ([bool, bool, bool] | [True, True, 2]) -> Expected Bool. Actual Int
       check_error :: String -> String -> [Error]
       check_error type1 type2 = if type1 /= type2 then [getTypeError type1 type2] else []
-      current_type_errors = concat $ filter (\x -> length x > 0) $ zipWith check_error para_types_definition param_types_expression
+      current_parameter_type_errors = concat $ filter (\x -> length x > 0) $ zipWith check_error para_types_definition param_types_expression
 
 checkExpressionTypes :: Program -> [Error]
-checkExpressionTypes (Program defs expr) = errors_functions ++ errors_main
+checkExpressionTypes (Program defs expr) =  errors_functions ++ errors_main
   where
     -- [
     --   [x,y,z]
@@ -333,6 +346,8 @@ checkExpressionTypes (Program defs expr) = errors_functions ++ errors_main
     -- [f1, f2, f3]
     -- zip -> [(e1, f1), (e2, f2), (e3, f3)]
     -- map -> getType zipeado -> (type, [Error])
+
+    -- Loads environments for function definitions
     envs_params_names :: [[String]] --TODO: Env debe crearse o se llena dinámicamente????
     envs_params_names = map getFunctionParamNames defs
     envs_params_types :: [[Type]]
@@ -342,6 +357,7 @@ checkExpressionTypes (Program defs expr) = errors_functions ++ errors_main
     envs_and_defs :: [(Env, FunDef)]
     envs_and_defs = zip envs defs --TODO: y este reshape?
 
+    -- Auxiliar callbacks to return errors given the total parameters of a function
     error_application :: String-> Int -> Int -> Error
     error_application n s d = (ArgNumApp n s d)
     signatureParamCounts = getSignatureParamCounts defs []
@@ -349,13 +365,18 @@ checkExpressionTypes (Program defs expr) = errors_functions ++ errors_main
     error_callback_application :: [(String, Int)] -> [Error]
     error_callback_application params = checkDictInconsistencies error_application signatureParamCounts params
       
-    types_and_expressions_functions = map (\(curr_env, fundef) -> getType error_callback_application (getFunctionExpression fundef) curr_env defs) envs_and_defs
+    -- Checks for errors in function return types
+    -- Checks for errors in function expressions
+    types_and_errors_functions = map (\(curr_env, fundef) -> getType error_callback_application (getFunctionExpression fundef) curr_env defs) envs_and_defs
+    functions_return_type = map getTypeType $ map getFunctionType defs
+    typeserrors_and_correcttypes_functions = zip types_and_errors_functions functions_return_type
+    errors_functions = (concatMap (\((curr_type, curr_errors), correct_type) -> curr_errors ++ (if curr_type == correct_type then [] else [getTypeError correct_type curr_type])) typeserrors_and_correcttypes_functions) -- ++ [Duplicated (show expr), Duplicated (show $ fst $ envs_and_defs !! 0), Duplicated (show $ snd $ envs_and_defs !! 0)]
       -- concatMap (\fun_expr -> getType error_callback_application fun_expr [] defs)
       -- map (\(curr_env, fundef) -> getType error_callback_application expr curr_env fundef) envs_and_defs --TODO: necesario??
-    errors_functions = (concatMap snd types_and_expressions_functions) -- ++ [Duplicated (show expr), Duplicated (show $ fst $ envs_and_defs !! 0), Duplicated (show $ snd $ envs_and_defs !! 0)]
 
-    type_and_expressions_main = getType error_callback_application expr [] defs -- TODO: Ver env=[]
-    errors_main = (snd type_and_expressions_main) -- ++ [Duplicated (show $ types_and_expressions_main)] -- ++[Duplicated (show expr), Duplicated (show defs), Duplicated (show types_and_expressions_main)]
+    -- Checks for errors in main expressions
+    type_and_errors_main = getType error_callback_application expr [] defs -- TODO: Ver env=[]
+    errors_main = (snd type_and_errors_main) -- ++ [Duplicated (show $ types_and_expressions_main)] -- ++[Duplicated (show expr), Duplicated (show defs), Duplicated (show types_and_expressions_main)]
 
 -- ########################################
 -- ################# ALL ##################
@@ -396,9 +417,9 @@ checkExpressionTypes (Program defs expr) = errors_functions ++ errors_main
 checkProgram :: Program -> Checked
 checkProgram prog
   | length errors1 /= 0 = Wrong errors1
-  | length errors2 /= 0 = Wrong (errors2 ++ [Duplicated (show errors2)])
-  | length errors3 /= 0 = Wrong (errors3 ++ [Duplicated (show errors3)])
-  | length errors4 /= 0 = Wrong (errors4 ++ [])--getTypeError "Hola" "Adios"])
+  | length errors2 /= 0 = Wrong (errors2)-- ++ [Duplicated (show errors2)])
+  | length errors3 /= 0 = Wrong (errors3)-- ++ [Duplicated (show errors3)])
+  | length errors4 /= 0 = Wrong (errors4)-- ++ [])--getTypeError "Hola" "Adios"])
   | otherwise = Ok
   where
     errors1 = checkRepeatedNames prog

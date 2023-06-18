@@ -1,4 +1,4 @@
 f :: (Int, Int) -> Int
-f (x,y) = 1
+f (x,y) = x > True
 
-main = f (True,True,True,True)
+main = f (1, 1)
