@@ -23,22 +23,21 @@ isLiteral _ = False
 letElimP :: Program -> Program 
 letElimP (Program defs x) = Program (new_defs) (go x)
     where 
-        handleLiteral :: Name -> Expr -> Expr -> Expr
-        handleLiteral name expr1 expr2 = subst name expr1 expr2
         go :: Expr -> Expr
         go (Var expr) = Var expr
         go (IntLit expr) = IntLit expr
         go (BoolLit expr) = BoolLit expr
         go (Infix op expr1 expr2) = Infix op (go expr1) (go expr2)
         go (If condition then_expr else_expr) = If (go condition) (go then_expr) (else_expr) 
-        go (Let (name, _) (IntLit expr1) expr2) = handleLiteral name (IntLit expr1) expr2
-        go (Let (name, _) (BoolLit expr1) expr2) = handleLiteral name (BoolLit expr1) expr2
-        go (Let typedvar expr1 expr2) = final_new_expression
+        -- Comento porque no funciona cuando un let da paso a otro
+        -- go (Let (name, _) (IntLit expr1) expr2) = subst name (IntLit expr1) expr2
+        -- go (Let (name, _) (BoolLit expr1) expr2) = subst name (BoolLit expr1) expr2
+        go (Let typedvar@(name, _) expr1 expr2) = final_new_expression
             where
                 new_expr1 = go expr1
                 new_expr2 = go expr2
                 new_global_expr = Let typedvar new_expr1 new_expr2
-                final_new_expression = if (isLiteral new_expr1) then (go new_global_expr) else new_global_expr
+                final_new_expression = if (isLiteral new_expr1 && ((show new_expr1) /= (show expr1))||(show new_expr2) /= (show expr2)) then (subst name new_expr1 new_global_expr) else new_global_expr
         go (App name expr) = App name (map go expr)
 
         new_defs = map (\(FunDef typedfun names expr) -> FunDef typedfun names (go expr)) defs
@@ -50,8 +49,9 @@ subst name expr1 (BoolLit expr2) = BoolLit expr2
 
 subst name expr1 (If condition then_expr else_expr) = 
     If (subst name expr1 condition) (subst name expr1 then_expr) (subst name expr1 else_expr)
-subst name expr1 (Infix operator operand1 operand2) = --PELIGROSO OPT
+subst name expr1 (Infix operator operand1 operand2) =
     Infix operator (subst name expr1 operand1) (subst name expr1 operand2)
-subst name expr1 (Let (name_let, _) expr1_let expr2_let) =
-    subst name expr1 (subst name_let expr1_let expr2_let)
-subst name expr1 (App app_name expressions) = App app_name $ map (subst name expr1) expressions --ver
+subst name expr1 (Let typedvar@(name_let, _) expr1_let expr2_let)
+    | name == name_let = Let typedvar (subst name expr1 expr1_let) expr2_let
+    | otherwise = Let typedvar (subst name expr1 expr1_let) (subst name expr1 expr2_let) -- (subst name_let expr1_let expr2_let)
+subst name expr1 (App app_name expressions) = App app_name $ map (subst name expr1) expressions

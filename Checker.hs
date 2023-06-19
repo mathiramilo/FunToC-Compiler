@@ -285,7 +285,7 @@ getType error_callback_application (If condition then_expr else_expr) env defs =
 
 -- TODO: Quitar ultima condicion? Agregar checkeo extra de si x tiene el mismo tipo que las x en e'.
 getType error_callback_application (Let (to_substitute_name, to_substitute_type) substituted_expr final_expression) env defs =
-  (type_final_expression, curr_substituted_to_substitute_type_error ++ errors_final_expression)
+  (type_final_expression, curr_substituted_to_substitute_type_error ++ errors_substituted ++ errors_final_expression)
   where
     env_without_substituted_variable = filter (\(name, _) -> name /= to_substitute_name) env
 
@@ -298,6 +298,7 @@ getType error_callback_application (Let (to_substitute_name, to_substitute_type)
     -- Compare types t ^ e --> e'[x::t/e] <-- (all (noLigado(x) and type(x)==t) types(x in t))
     type_and_error_substituted = getType error_callback_application substituted_expr final_expression_env defs
     type_substituted = fst type_and_error_substituted
+    errors_substituted = snd type_and_error_substituted
     type_type_to_substitute = getTypeType to_substitute_type
     are_equal_type_substituted_to_substitute = type_substituted == type_type_to_substitute
     curr_substituted_to_substitute_type_error = if are_equal_type_substituted_to_substitute then [] else [getTypeError type_type_to_substitute type_substituted]
@@ -334,7 +335,7 @@ getType error_callback_application (App name expressions) env defs = --TODO: Rel
       current_parameter_type_errors = concat $ filter (\x -> length x > 0) $ zipWith check_error para_types_definition param_types_expression
 
 checkExpressionTypes :: Program -> [Error]
-checkExpressionTypes (Program defs expr) =  errors_functions ++ errors_main
+checkExpressionTypes (Program defs expr) = errors_functions ++ errors_main
   where
     -- [
     --   [x,y,z]
@@ -374,7 +375,7 @@ checkExpressionTypes (Program defs expr) =  errors_functions ++ errors_main
     types_and_errors_functions = map (\(curr_env, fundef) -> getType error_callback_application (getFunctionExpression fundef) curr_env defs) envs_and_defs
     functions_return_type = map getTypeType $ map getFunctionType defs
     typeserrors_and_correcttypes_functions = zip types_and_errors_functions functions_return_type
-    errors_functions = (concatMap (\((curr_type, curr_errors), correct_type) -> curr_errors ++ (if curr_type == correct_type then [] else [getTypeError correct_type curr_type])) typeserrors_and_correcttypes_functions) -- ++ [Duplicated (show expr), Duplicated (show $ fst $ envs_and_defs !! 0), Duplicated (show $ snd $ envs_and_defs !! 0)]
+    errors_functions = (concatMap (\((curr_type, curr_errors), correct_type) ->  (if curr_type == correct_type then [] else [getTypeError correct_type curr_type]) ++ curr_errors) typeserrors_and_correcttypes_functions) -- ++ [Duplicated (show expr), Duplicated (show $ fst $ envs_and_defs !! 0), Duplicated (show $ snd $ envs_and_defs !! 0)]
       -- concatMap (\fun_expr -> getType error_callback_application fun_expr [] defs)
       -- map (\(curr_env, fundef) -> getType error_callback_application expr curr_env fundef) envs_and_defs --TODO: necesario??
 
