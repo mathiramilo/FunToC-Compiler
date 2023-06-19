@@ -155,7 +155,7 @@ checkDictInconsistencies :: (String -> Int -> Int -> Error) -> [(String, Int)] -
 checkDictInconsistencies error_callback tuples1 tuples2 = concatMap (\tuple -> checkDictInconsistency error_callback tuple tuples2 []) tuples1
 
 checkParamInts :: Program -> [Error]
-checkParamInts (Program defs expr) = errors ++ [Duplicated $ show errors]
+checkParamInts (Program defs expr) = errors
   where
     signatureParamCounts = getSignatureParamCounts defs []
     functionParamCounts = getFunctionParamCounts defs []

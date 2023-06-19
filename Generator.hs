@@ -81,7 +81,7 @@ genExpr (Let (name, typ) e1 e2) count =
       paramName = " _" ++ name
       (expr1Bdy, expr1Lets, letsQty1) = genExpr e1 (count + 1)
       (expr2Bdy, expr2Lets, letsQty2) = genExpr e2 letsQty1
-  in (varName ++ "(" ++ expr1Bdy ++ ")", varType ++ " " ++ varName ++ "(" ++ varType ++ paramName ++ "){\n" ++ "return (" ++ expr2Bdy ++ "); };\n" ++ expr1Lets ++ expr2Lets, letsQty2)
+  in (varName ++ "(" ++ expr1Bdy ++ ")", expr1Lets ++ varType ++ " " ++ varName ++ "(" ++ varType ++ paramName ++ "){\n" ++ expr2Lets ++ "return (" ++ expr2Bdy ++ "); };\n", letsQty2)
 
 genExpr (App name args) count =
   let (argList, argLets, letsQty) = genArgs args count
