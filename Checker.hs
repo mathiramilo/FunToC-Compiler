@@ -87,10 +87,11 @@ checkUndefinedNames prog = if (length (checkUndefinedNamesFuncDecl prog) == 0) &
 
 -- Chequeo de nombres no declarados en la declaracion de funciones.
 checkUndefinedNamesFuncDecl :: Program -> [Error]
-checkUndefinedNamesFuncDecl (Program defs _) = concatMap checkUndefinedNamesFuncDecl' defs
+checkUndefinedNamesFuncDecl (Program defs _) = concatMap (\x -> checkUndefinedNamesFuncDecl' x defsNames) defs
+                                                where defsNames = map getFunctionName defs
 
-checkUndefinedNamesFuncDecl' :: FunDef -> [Error]
-checkUndefinedNamesFuncDecl' (FunDef (name, _) params expr) = checkUndefinedNamesExpr expr params
+checkUndefinedNamesFuncDecl' :: FunDef -> [String] -> [Error]
+checkUndefinedNamesFuncDecl' (FunDef (name, _) params expr) defsNames = checkUndefinedNamesExpr expr (params ++ defsNames)
 
 -- Chequeo de nombres no declarados en la expresion principal.
 checkUndefinedNamesMain :: Program -> [Error]
