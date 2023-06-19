@@ -72,7 +72,7 @@ def compare_each_line(tests_idx: list[int], err: bool = False, opt: bool = False
 # import os; os.system("runhaskell Compiler.hs localtests/ejemplo4-b-err > localtests/ejemplo4-b-err.err")
 if __name__ == "__main__":
     only_compare = bool(sys.argv[1]) if len(sys.argv) > 1 else False
-    tests_with_errors = range(1, 5)
+    tests_with_errors = range(1, 8)
     tests_without_errors = range(1, 11)
 
     if not only_compare:
