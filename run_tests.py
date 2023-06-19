@@ -1,4 +1,5 @@
 import os
+import subprocess
 import shutil
 import sys
 
@@ -69,19 +70,57 @@ def compare_each_line(tests_idx: list[int], err: bool = False, opt: bool = False
         else:
             print(f"Test {file1_dir} - {file2_dir} passed ✅", end="\n\n")
 
+def compare_correct_outputs(tests_idx: list[int], opt: bool = False):
+    for idx in tests_idx:
+        filename = f"ejemplo{idx}" if not opt else f"ejemplo{idx}_opt"
+        completed1 = subprocess.run(["gcc", f"localtests/{filename}.c", "-o", f"localtests/{filename}"])
+        completed2 = subprocess.run(["gcc", f"tests/{filename}.c", "-o", f"tests/{filename}"])
+        if completed1.returncode != 0 or completed2.returncode != 0:
+            print(f"Error compiling {filename} ❌")
+            continue
+        
+        completed1 = subprocess.run(
+            [f"./localtests/{filename}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE            
+        )
+        completed2 = subprocess.run(
+            [f"./tests/{filename}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+
+        if completed1.returncode != 0 or completed2.returncode != 0 or \
+            completed1.stderr != completed2.stderr:
+            print(f"Error running {filename} ❌")
+            continue
+
+        if completed1.stdout != completed2.stdout:
+            print(f"Error in test {filename} ❌")
+            print(f"Expected: {completed2.stdout}")
+            print(f"Obtained: {completed1.stdout}")
+
+        print(f"Test {filename} passed ✅ with output {int(completed1.stdout)} == {int(completed2.stdout)}")
+
 # import os; os.system("runhaskell Compiler.hs localtests/ejemplo4-b-err > localtests/ejemplo4-b-err.err")
+# os.system("runhaskell Compiler.hs -p -o localtests/ejemplo7")
 if __name__ == "__main__":
-    only_compare = bool(sys.argv[1]) if len(sys.argv) > 1 else False
+    run_only = int(sys.argv[1]) if len(sys.argv) > 1 else False
     tests_with_errors = range(1, 8)
     tests_without_errors = range(1, 11)
 
-    if not only_compare:
+    if run_only == 0:
         remove_temp_files()
         copy_files()
         run_tests(tests_with_errors, err=True)
         run_tests(tests_without_errors, err=False)
     
-    compare_each_line(tests_without_errors)
-    compare_each_line(tests_without_errors, opt=True)
-    compare_each_line(tests_with_errors, err=True)
+    if run_only == 1:
+        compare_each_line(tests_without_errors)
+        compare_each_line(tests_without_errors, opt=True)
+        compare_each_line(tests_with_errors, err=True)
+
+    if run_only == 2:
+        compare_correct_outputs(tests_without_errors)
+        compare_correct_outputs(tests_without_errors, opt=True)
     
