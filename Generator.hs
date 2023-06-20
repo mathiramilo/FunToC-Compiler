@@ -17,6 +17,7 @@ import Data.ByteString (count)
 
 -- CODE GENERATOR
 
+-- Funcion encargada de generar el codigo C de un programa
 genProgram :: Program -> String
 genProgram (Program defs expr) =
   let functionDecls = genFunctionDecls defs
