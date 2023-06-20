@@ -60,5 +60,5 @@ subst name expr1 (Let typedvar@(name_let, _) expr1_let expr2_let)
     -- If too lets with same variable name, only substitute the first expression
     | name == name_let = Let typedvar (subst name expr1 expr1_let) expr2_let
     -- Otherwise, substitute both
-    | otherwise = Let typedvar (subst name expr1 expr1_let) (subst name expr1 expr2_let) -- (subst name_let expr1_let expr2_let)
+    | otherwise = Let typedvar (subst name expr1 expr1_let) (subst name expr1 expr2_let)
 subst name expr1 (App app_name expressions) = App app_name $ map (subst name expr1) expressions

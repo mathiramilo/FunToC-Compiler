@@ -105,22 +105,22 @@ def compare_correct_outputs(tests_idx: list[int], opt: bool = False):
 # import os; os.system("runhaskell Compiler.hs localtests/ejemplo4-b-err > localtests/ejemplo4-b-err.err")
 # os.system("runhaskell Compiler.hs -p -o localtests/ejemplo7")
 if __name__ == "__main__":
-    run_only = int(sys.argv[1]) if len(sys.argv) > 1 else False
+    run_only = int(sys.argv[1]) if len(sys.argv) > 1 else None
     tests_with_errors = range(1, 8)
     tests_without_errors = range(1, 11)
 
-    if run_only == 0:
+    if run_only == 0 or run_only is None:
         remove_temp_files()
         copy_files()
         run_tests(tests_with_errors, err=True)
         run_tests(tests_without_errors, err=False)
     
-    if run_only == 1:
+    if run_only == 1 or run_only is None:
         compare_each_line(tests_without_errors)
         compare_each_line(tests_without_errors, opt=True)
         compare_each_line(tests_with_errors, err=True)
 
-    if run_only == 2:
+    if run_only == 2 or run_only is None:
         compare_correct_outputs(tests_without_errors)
         compare_correct_outputs(tests_without_errors, opt=True)
     
